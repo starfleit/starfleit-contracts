@@ -1,0 +1,39 @@
+[package]
+name = "starfleit"
+version = "0.1.0"
+authors = ["DELIGHTLABS"]
+edition = "2018"
+description = "Common STARFLEIT types"
+license = "Apache-2.0"
+repository = "https://github.com/starfleit/starfleit"
+homepage = "https://starfleit.io"
+documentation = "https://docs.starfleit.io"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+# for quicker tests, cargo test --lib
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+
+[dependencies]
+cw20 = { version = "0.11.0" } 
+cosmwasm-storage = { version = "1.0.0-beta6" }
+cosmwasm-std = { version = "1.0.0-beta7", features = ["stargate"] }
+schemars = "0.8.1"
+serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+protobuf = { version = "2", features = ["with-bytes"] }
+
+[dev-dependencies]
+cosmwasm-schema = { version = "1.0.0-beta6" }
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+overflow-checks = true

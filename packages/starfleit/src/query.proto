@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+// QueryDenomTraceRequest is the request type for the Query/DenomTrace RPC
+// method
+message QueryDenomTraceRequest {
+  // hash (in hex format) of the denomination trace information.
+  string hash = 1;
+}
+
+// DenomTrace contains the base denomination for ICS20 fungible tokens and the
+// source tracing information path.
+message DenomTrace {
+  // path defines the chain of port/channel identifiers used for tracing the
+  // source of the fungible token.
+  string path = 1;
+  // base denomination of the relayed fungible token.
+  string base_denom = 2;
+}
+
+// QueryDenomTraceResponse is the response type for the Query/DenomTrace RPC
+// method.
+message QueryDenomTraceResponse {
+  // denom_trace returns the requested denomination trace information.
+  DenomTrace denom_trace = 1;
+}
+
+// QuerySupplyOfRequest is the request type for the Query/SupplyOf RPC method.
+message QuerySupplyOfRequest {
+  // denom is the coin denom to query balances for.
+  string denom = 1;
+}
+
+// QuerySupplyOfResponse is the response type for the Query/SupplyOf RPC method.
+message QuerySupplyOfResponse {
+  // amount is the supply of the coin.
+  Coin amount = 1;
+}
+
+// Coin defines a token with a denomination and an amount.
+//
+// NOTE: The amount field is an Int which implements the custom method
+// signatures required by gogoproto.
+message Coin {
+  string denom  = 1;
+  string amount = 2;
+}
