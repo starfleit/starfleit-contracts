@@ -2,9 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::querier::{
-    query_balance, query_decimals, query_ibc_denom, query_supply, query_token_balance,
-};
+use crate::querier::{query_balance, query_decimals, query_supply, query_token_balance};
 use cosmwasm_std::{
     to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Empty, MessageInfo,
     QuerierWrapper, StdError, StdResult, SubMsg, Uint128, WasmMsg,
@@ -184,13 +182,7 @@ impl AssetInfo {
 
     pub fn is_valid(&self, querier: &QuerierWrapper<Empty>) -> bool {
         match self {
-            AssetInfo::NativeToken { denom } => {
-                if denom.starts_with("ibc") {
-                    query_ibc_denom(querier, denom.to_string()).is_ok()
-                } else {
-                    true
-                }
-            }
+            AssetInfo::NativeToken { denom: _ } => true,
             AssetInfo::Token { contract_addr } => {
                 query_supply(querier, Addr::unchecked(contract_addr)).is_ok()
             }

@@ -20,13 +20,13 @@ Uniswap-inspired automated market-maker (AMM) protocol powered by Smart Contract
 
    Mainnet (CodeID): 
 
-   Testnet (CodeID): 544
+   Testnet (CodeID): 711
 
 * starfleit_token
 
    Mainnet (CodeID): 
 
-   Testnet (CodeID): 543
+   Testnet (CodeID): 712
 
 ## Running this contract
 
