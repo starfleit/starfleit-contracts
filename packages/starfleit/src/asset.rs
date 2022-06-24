@@ -2,10 +2,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::querier::{query_balance, query_decimals, query_supply, query_token_balance};
+use crate::querier::{query_balance, query_native_decimals, query_token_balance, query_token_info};
 use cosmwasm_std::{
-    to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, Empty, MessageInfo,
-    QuerierWrapper, StdError, StdResult, SubMsg, Uint128, WasmMsg,
+    to_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, MessageInfo, QuerierWrapper,
+    StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 
@@ -26,11 +26,7 @@ impl Asset {
         self.info.is_native_token()
     }
 
-    pub fn into_msg(
-        self,
-        _querier: &QuerierWrapper<Empty>,
-        recipient: Addr,
-    ) -> StdResult<CosmosMsg> {
+    pub fn into_msg(self, recipient: Addr) -> StdResult<CosmosMsg> {
         let amount = self.amount;
 
         match &self.info {
@@ -42,22 +38,18 @@ impl Asset {
                 })?,
                 funds: vec![],
             })),
-            AssetInfo::NativeToken { denom: _denom } => Ok(CosmosMsg::Bank(BankMsg::Send {
+            AssetInfo::NativeToken { denom } => Ok(CosmosMsg::Bank(BankMsg::Send {
                 to_address: recipient.to_string(),
                 amount: vec![Coin {
                     amount: self.amount,
-                    denom: _denom.to_string(),
+                    denom: denom.to_string(),
                 }],
             })),
         }
     }
 
-    pub fn into_submsg(
-        self,
-        querier: &QuerierWrapper<Empty>,
-        recipient: Addr,
-    ) -> StdResult<SubMsg> {
-        Ok(SubMsg::new(self.into_msg(querier, recipient)?))
+    pub fn into_submsg(self, recipient: Addr) -> StdResult<SubMsg> {
+        Ok(SubMsg::new(self.into_msg(recipient)?))
     }
 
     pub fn assert_sent_native_token_balance(&self, message_info: &MessageInfo) -> StdResult<()> {
@@ -136,7 +128,7 @@ impl AssetInfo {
     }
     pub fn query_pool(
         &self,
-        querier: &QuerierWrapper<Empty>,
+        querier: &QuerierWrapper,
         api: &dyn Api,
         pool_addr: Addr,
     ) -> StdResult<Uint128> {
@@ -148,15 +140,6 @@ impl AssetInfo {
             ),
             AssetInfo::NativeToken { denom, .. } => {
                 query_balance(querier, pool_addr, denom.to_string())
-            }
-        }
-    }
-
-    pub fn query_decimals(self, querier: &QuerierWrapper<Empty>) -> StdResult<u8> {
-        match self {
-            AssetInfo::NativeToken { .. } => Ok(6u8),
-            AssetInfo::Token { contract_addr } => {
-                query_decimals(querier, Addr::unchecked(contract_addr))
             }
         }
     }
@@ -180,11 +163,14 @@ impl AssetInfo {
         }
     }
 
-    pub fn is_valid(&self, querier: &QuerierWrapper<Empty>) -> bool {
+    pub fn query_decimals(&self, account_addr: Addr, querier: &QuerierWrapper) -> StdResult<u8> {
         match self {
-            AssetInfo::NativeToken { denom: _ } => true,
+            AssetInfo::NativeToken { denom } => {
+                query_native_decimals(querier, account_addr, denom.to_string())
+            }
             AssetInfo::Token { contract_addr } => {
-                query_supply(querier, Addr::unchecked(contract_addr)).is_ok()
+                let token_info = query_token_info(querier, Addr::unchecked(contract_addr))?;
+                Ok(token_info.decimals)
             }
         }
     }
@@ -265,6 +251,7 @@ pub struct PairInfo {
     pub asset_infos: [AssetInfo; 2],
     pub contract_addr: String,
     pub liquidity_token: String,
+    pub asset_decimals: [u8; 2],
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -272,6 +259,7 @@ pub struct PairInfoRaw {
     pub asset_infos: [AssetInfoRaw; 2],
     pub contract_addr: CanonicalAddr,
     pub liquidity_token: CanonicalAddr,
+    pub asset_decimals: [u8; 2],
 }
 
 impl PairInfoRaw {
@@ -283,12 +271,13 @@ impl PairInfoRaw {
                 self.asset_infos[0].to_normal(api)?,
                 self.asset_infos[1].to_normal(api)?,
             ],
+            asset_decimals: self.asset_decimals,
         })
     }
 
     pub fn query_pools(
         &self,
-        querier: &QuerierWrapper<Empty>,
+        querier: &QuerierWrapper,
         api: &dyn Api,
         contract_addr: Addr,
     ) -> StdResult<[Asset; 2]> {

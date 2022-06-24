@@ -7,8 +7,7 @@ use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, CanonicalAddr, Coin, CosmosMsg, Decimal, Deps, DepsMut,
-    Empty, Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128,
-    WasmMsg,
+    Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
@@ -20,7 +19,7 @@ use starfleit::pair::{
     Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PoolResponse, QueryMsg,
     ReverseSimulationResponse, SimulationResponse,
 };
-use starfleit::querier::query_supply;
+use starfleit::querier::query_token_info;
 use starfleit::token::InstantiateMsg as TokenInstantiateMsg;
 use std::cmp::Ordering;
 use std::str::FromStr;
@@ -31,7 +30,7 @@ const INSTANTIATE_REPLY_ID: u64 = 1;
 const COMMISSION_RATE: &str = "0.003";
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut<Empty>,
+    deps: DepsMut,
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
@@ -43,6 +42,7 @@ pub fn instantiate(
             msg.asset_infos[0].to_raw(deps.api)?,
             msg.asset_infos[1].to_raw(deps.api)?,
         ],
+        asset_decimals: msg.asset_decimals,
     };
 
     PAIR_INFO.save(deps.storage, pair_info)?;
@@ -63,7 +63,7 @@ pub fn instantiate(
                 }),
             })?,
             funds: vec![],
-            label: "uLP".to_string(),
+            label: "lp".to_string(),
         }
         .into(),
         gas_limit: None,
@@ -74,7 +74,7 @@ pub fn instantiate(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    deps: DepsMut<Empty>,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
@@ -117,7 +117,7 @@ pub fn execute(
 }
 
 pub fn receive_cw20(
-    deps: DepsMut<Empty>,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
@@ -184,13 +184,13 @@ pub fn receive_cw20(
 
 /// This just stores the result for future query
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut<Empty>, _env: Env, msg: Reply) -> StdResult<Response> {
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     let data = msg.result.unwrap().data.unwrap();
     let res: MsgInstantiateContractResponse =
         Message::parse_from_bytes(data.as_slice()).map_err(|_| {
             StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data")
         })?;
-    let liquidity_token = res.get_contract_address();
+    let liquidity_token = res.get_address();
 
     let api = deps.api;
     PAIR_INFO.update(deps.storage, |mut meta| -> StdResult<_> {
@@ -203,7 +203,7 @@ pub fn reply(deps: DepsMut<Empty>, _env: Env, msg: Reply) -> StdResult<Response>
 
 /// CONTRACT - should approve contract to use the amount of token
 pub fn provide_liquidity(
-    deps: DepsMut<Empty>,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     assets: [Asset; 2],
@@ -254,7 +254,7 @@ pub fn provide_liquidity(
     assert_slippage_tolerance(&slippage_tolerance, &deposits, &pools)?;
 
     let liquidity_token = deps.api.addr_humanize(&pair_info.liquidity_token)?;
-    let total_share = query_supply(&deps.querier, liquidity_token)?;
+    let total_share = query_token_info(&deps.querier, liquidity_token)?.total_supply;
     let share = if total_share == Uint128::zero() {
         // Initial share = collateral amount
         Uint128::from((deposits[0].u128() * deposits[1].u128()).integer_sqrt())
@@ -299,7 +299,7 @@ pub fn provide_liquidity(
 }
 
 pub fn withdraw_liquidity(
-    deps: DepsMut<Empty>,
+    deps: DepsMut,
     env: Env,
     _info: MessageInfo,
     sender: Addr,
@@ -309,7 +309,7 @@ pub fn withdraw_liquidity(
     let liquidity_addr: Addr = deps.api.addr_humanize(&pair_info.liquidity_token)?;
 
     let pools: [Asset; 2] = pair_info.query_pools(&deps.querier, deps.api, env.contract.address)?;
-    let total_share: Uint128 = query_supply(&deps.querier, liquidity_addr)?;
+    let total_share: Uint128 = query_token_info(&deps.querier, liquidity_addr)?.total_supply;
 
     let share_ratio: Decimal = Decimal::from_ratio(amount, total_share);
     let refund_assets: Vec<Asset> = pools
@@ -323,12 +323,8 @@ pub fn withdraw_liquidity(
     // update pool info
     Ok(Response::new()
         .add_messages(vec![
-            refund_assets[0]
-                .clone()
-                .into_msg(&deps.querier, sender.clone())?,
-            refund_assets[1]
-                .clone()
-                .into_msg(&deps.querier, sender.clone())?,
+            refund_assets[0].clone().into_msg(sender.clone())?,
+            refund_assets[1].clone().into_msg(sender.clone())?,
             // burn liquidity token
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps
@@ -353,7 +349,7 @@ pub fn withdraw_liquidity(
 // CONTRACT - a user must do token approval
 #[allow(clippy::too_many_arguments)]
 pub fn swap(
-    deps: DepsMut<Empty>,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     sender: Addr,
@@ -371,6 +367,8 @@ pub fn swap(
     let offer_pool: Asset;
     let ask_pool: Asset;
 
+    let offer_decimal: u8;
+    let ask_decimal: u8;
     // If the asset balance is already increased
     // To calculated properly we should subtract user deposit from the pool
     if offer_asset.info.equal(&pools[0].info) {
@@ -379,12 +377,18 @@ pub fn swap(
             info: pools[0].info.clone(),
         };
         ask_pool = pools[1].clone();
+
+        offer_decimal = pair_info.asset_decimals[0];
+        ask_decimal = pair_info.asset_decimals[1];
     } else if offer_asset.info.equal(&pools[1].info) {
         offer_pool = Asset {
             amount: pools[1].amount.checked_sub(offer_asset.amount)?,
             info: pools[1].info.clone(),
         };
         ask_pool = pools[0].clone();
+
+        offer_decimal = pair_info.asset_decimals[1];
+        ask_decimal = pair_info.asset_decimals[0];
     } else {
         return Err(ContractError::AssetMismatch {});
     }
@@ -400,19 +404,20 @@ pub fn swap(
 
     // check max spread limit if exist
     assert_max_spread(
-        deps.as_ref(),
         belief_price,
         max_spread,
         offer_asset.clone(),
         return_asset.clone(),
         spread_amount,
+        offer_decimal,
+        ask_decimal,
     )?;
 
     let receiver = to.unwrap_or_else(|| sender.clone());
 
     let mut messages: Vec<CosmosMsg> = vec![];
     if !return_amount.is_zero() {
-        messages.push(return_asset.into_msg(&deps.querier, receiver.clone())?);
+        messages.push(return_asset.into_msg(receiver.clone())?);
     }
 
     // 1. send collateral token from the contract to a user
@@ -431,7 +436,7 @@ pub fn swap(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps<Empty>, _env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::Pair {} => Ok(to_binary(&query_pair_info(deps)?)?),
         QueryMsg::Pool {} => Ok(to_binary(&query_pool(deps)?)?),
@@ -444,21 +449,22 @@ pub fn query(deps: Deps<Empty>, _env: Env, msg: QueryMsg) -> Result<Binary, Cont
     }
 }
 
-pub fn query_pair_info(deps: Deps<Empty>) -> Result<PairInfo, ContractError> {
+pub fn query_pair_info(deps: Deps) -> Result<PairInfo, ContractError> {
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
     let pair_info = pair_info.to_normal(deps.api)?;
 
     Ok(pair_info)
 }
 
-pub fn query_pool(deps: Deps<Empty>) -> Result<PoolResponse, ContractError> {
+pub fn query_pool(deps: Deps) -> Result<PoolResponse, ContractError> {
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
     let contract_addr = deps.api.addr_humanize(&pair_info.contract_addr)?;
     let assets: [Asset; 2] = pair_info.query_pools(&deps.querier, deps.api, contract_addr)?;
-    let total_share: Uint128 = query_supply(
+    let total_share: Uint128 = query_token_info(
         &deps.querier,
         deps.api.addr_humanize(&pair_info.liquidity_token)?,
-    )?;
+    )?
+    .total_supply;
 
     let resp = PoolResponse {
         assets,
@@ -469,7 +475,7 @@ pub fn query_pool(deps: Deps<Empty>) -> Result<PoolResponse, ContractError> {
 }
 
 pub fn query_simulation(
-    deps: Deps<Empty>,
+    deps: Deps,
     offer_asset: Asset,
 ) -> Result<SimulationResponse, ContractError> {
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
@@ -500,7 +506,7 @@ pub fn query_simulation(
 }
 
 pub fn query_reverse_simulation(
-    deps: Deps<Empty>,
+    deps: Deps,
     ask_asset: Asset,
 ) -> Result<ReverseSimulationResponse, ContractError> {
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
@@ -521,7 +527,7 @@ pub fn query_reverse_simulation(
     }
 
     let (offer_amount, spread_amount, commission_amount) =
-        compute_offer_amount(offer_pool.amount, ask_pool.amount, ask_asset.amount)?;
+        compute_offer_amount(offer_pool.amount, ask_pool.amount, ask_asset.amount);
 
     Ok(ReverseSimulationResponse {
         offer_amount,
@@ -584,7 +590,7 @@ fn compute_offer_amount(
     offer_pool: Uint128,
     ask_pool: Uint128,
     ask_amount: Uint128,
-) -> Result<(Uint128, Uint128, Uint128), ContractError> {
+) -> (Uint128, Uint128, Uint128) {
     let offer_pool: Uint256 = offer_pool.into();
     let ask_pool: Uint256 = ask_pool.into();
     let ask_amount: Uint256 = ask_amount.into();
@@ -614,32 +620,25 @@ fn compute_offer_amount(
 
     let commission_amount = before_commission_deduction * commission_rate;
 
-    // check small amount swap
-    if spread_amount.is_zero() || commission_amount.is_zero() {
-        return Err(ContractError::TooSmallOfferAmount {});
-    }
-
-    Ok((
+    (
         offer_amount.into(),
         spread_amount.into(),
         commission_amount.into(),
-    ))
+    )
 }
 
 /// If `belief_price` and `max_spread` both are given,
 /// we compute new spread else we just use starfleit
 /// spread to check `max_spread`
 pub fn assert_max_spread(
-    deps: Deps<Empty>,
     belief_price: Option<Decimal>,
     max_spread: Option<Decimal>,
     offer_asset: Asset,
     return_asset: Asset,
     spread_amount: Uint128,
+    offer_decimal: u8,
+    return_decimal: u8,
 ) -> Result<(), ContractError> {
-    let offer_decimal = offer_asset.info.query_decimals(&deps.querier)?;
-    let return_decimal = return_asset.info.query_decimals(&deps.querier)?;
-
     let (offer_amount, return_amount, spread_amount): (Uint256, Uint256, Uint256) =
         match offer_decimal.cmp(&return_decimal) {
             Ordering::Greater => {

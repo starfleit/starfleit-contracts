@@ -1,4 +1,7 @@
 # STARFLEIT
+[![starfleit on crates.io](https://img.shields.io/crates/v/starfleit.svg)](https://crates.io/crates/starfleit)
+[![workflow](https://github.com/starfleit/starfleit/actions/workflows/tests.yml/badge.svg)](https://github.com/starfleit/starfleit-contracts/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/starfleit/starfleit-contracts/branch/main/graph/badge.svg?token=RKTBOBPCCW)](https://codecov.io/gh/starfleit/starfleit-contracts)
 
 Uniswap-inspired automated market-maker (AMM) protocol powered by Smart Contracts.
 
@@ -14,19 +17,19 @@ Uniswap-inspired automated market-maker (AMM) protocol powered by Smart Contract
 
    Mainnet: ``
 
-   Testnet: `fetch1xjn7ljgkzn8agscr8g6xnnhn3azu3kfkuga8uqufr36sc75f8s0sxyhnyq`
+   Testnet: `fetch1kmag3937lrl6dtsv29mlfsedzngl9egv5c3apnr468q50gu04zrqea398u`
 
 * starfleit_pair
 
    Mainnet (CodeID): 
 
-   Testnet (CodeID): 711
+   Testnet (CodeID): 1464
 
 * starfleit_token
 
    Mainnet (CodeID): 
 
-   Testnet (CodeID): 712
+   Testnet (CodeID): 1463
 
 ## Running this contract
 

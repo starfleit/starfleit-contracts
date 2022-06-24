@@ -1,7 +1,7 @@
 [package]
 name = "starfleit"
 version = "0.1.0"
-authors = ["DELIGHTLABS"]
+authors = ["DELIGHT LABS"]
 edition = "2018"
 description = "Common STARFLEIT types"
 license = "Apache-2.0"
@@ -17,15 +17,15 @@ documentation = "https://docs.starfleit.io"
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cw20 = { version = "0.11.0" } 
-cosmwasm-storage = { version = "1.0.0-beta6" }
-cosmwasm-std = { version = "1.0.0-beta7", features = ["stargate"] }
-schemars = "0.8.1"
+cw20 = { version = "0.13.2" } 
+cosmwasm-storage = { version = "1.0.0" }
+cosmwasm-std = { version = "1.0.0", features = ["stargate"] }
+schemars = "0.8.10"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 protobuf = { version = "2", features = ["with-bytes"] }
 
 [dev-dependencies]
-cosmwasm-schema = { version = "1.0.0-beta6" }
+cosmwasm-schema = { version = "1.0.0" }
 
 [profile.release]
 opt-level = 3
