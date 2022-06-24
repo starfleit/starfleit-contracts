@@ -7,11 +7,7 @@ The factory contract can perform creation of starfleit pair contract and also be
 ```json
 {
   "pair_code_id": 123,
-  "token_code_id": 123,
-  "init_hook": {
-    "msg": "123",
-    "contract_addr": "cosmos..."
-  }
+  "token_code_id": 123
 }
 ```
 
@@ -42,7 +38,7 @@ The factory contract can perform creation of starfleit pair contract and also be
       },
       {
         "native_token": {
-          "denom": "uusd"
+          "denom": "afet"
         }
       }
     ]
@@ -63,7 +59,7 @@ The factory contract can perform creation of starfleit pair contract and also be
       },
       {
         "native_token": {
-          "denom": "uusd"
+          "denom": "afet"
         }
       }
     ]
@@ -94,7 +90,7 @@ The factory contract can perform creation of starfleit pair contract and also be
       },
       {
         "native_token": {
-          "denom": "uusd"
+          "denom": "afet"
         }
       }
     ]
@@ -143,7 +139,7 @@ When a user execute `CreatePair` operation, it creates `Pair` contract and `LP(l
       },
       {
         "native_token": {
-          "denom": "uusd"
+          "denom": "afet"
         }
       }
     ]
@@ -165,7 +161,7 @@ Once a `Pair` contract invokes it, the sender address is registered as `Pair` co
             }
         }, {
             "native_token": {
-                "denom": "uusd",
+                "denom": "afet",
             }
     }],
 }

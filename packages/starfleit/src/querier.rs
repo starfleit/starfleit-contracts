@@ -1,20 +1,16 @@
 use crate::asset::{Asset, AssetInfo, PairInfo};
-use crate::factory::QueryMsg as FactoryQueryMsg;
+use crate::factory::{NativeTokenDecimalsResponse, QueryMsg as FactoryQueryMsg};
 use crate::pair::{QueryMsg as PairQueryMsg, ReverseSimulationResponse, SimulationResponse};
-use crate::query::{
-    QueryDenomTraceRequest, QueryDenomTraceResponse, QuerySupplyOfRequest, QuerySupplyOfResponse,
-};
 
 use cosmwasm_std::{
-    to_binary, to_vec, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Binary, Coin, Empty,
-    QuerierWrapper, QueryRequest, StdError, StdResult, Uint128, WasmQuery,
+    to_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Coin, QuerierWrapper,
+    QueryRequest, StdResult, Uint128, WasmQuery,
 };
 
 use cw20::{BalanceResponse as Cw20BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
-use protobuf::Message;
 
 pub fn query_balance(
-    querier: &QuerierWrapper<Empty>,
+    querier: &QuerierWrapper,
     account_addr: Addr,
     denom: String,
 ) -> StdResult<Uint128> {
@@ -26,10 +22,7 @@ pub fn query_balance(
     Ok(balance.amount.amount)
 }
 
-pub fn query_all_balances(
-    querier: &QuerierWrapper<Empty>,
-    account_addr: Addr,
-) -> StdResult<Vec<Coin>> {
+pub fn query_all_balances(querier: &QuerierWrapper, account_addr: Addr) -> StdResult<Vec<Coin>> {
     // load price form the oracle
     let all_balances: AllBalanceResponse =
         querier.query(&QueryRequest::Bank(BankQuery::AllBalances {
@@ -39,7 +32,7 @@ pub fn query_all_balances(
 }
 
 pub fn query_token_balance(
-    querier: &QuerierWrapper<Empty>,
+    querier: &QuerierWrapper,
     contract_addr: Addr,
     account_addr: Addr,
 ) -> StdResult<Uint128> {
@@ -54,27 +47,33 @@ pub fn query_token_balance(
     Ok(res.balance)
 }
 
-pub fn query_supply(querier: &QuerierWrapper<Empty>, contract_addr: Addr) -> StdResult<Uint128> {
-    // load price form the oracle
+pub fn query_token_info(
+    querier: &QuerierWrapper,
+    contract_addr: Addr,
+) -> StdResult<TokenInfoResponse> {
     let token_info: TokenInfoResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
         contract_addr: contract_addr.to_string(),
         msg: to_binary(&Cw20QueryMsg::TokenInfo {})?,
     }))?;
 
-    Ok(token_info.total_supply)
+    Ok(token_info)
 }
 
-pub fn query_decimals(querier: &QuerierWrapper<Empty>, contract_addr: Addr) -> StdResult<u8> {
-    let token_info: TokenInfoResponse = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-        contract_addr: contract_addr.to_string(),
-        msg: to_binary(&Cw20QueryMsg::TokenInfo {})?,
-    }))?;
-
-    Ok(token_info.decimals)
+pub fn query_native_decimals(
+    querier: &QuerierWrapper,
+    factory_contract: Addr,
+    denom: String,
+) -> StdResult<u8> {
+    let res: NativeTokenDecimalsResponse =
+        querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: factory_contract.to_string(),
+            msg: to_binary(&FactoryQueryMsg::NativeTokenDecimals { denom })?,
+        }))?;
+    Ok(res.decimals)
 }
 
 pub fn query_pair_info(
-    querier: &QuerierWrapper<Empty>,
+    querier: &QuerierWrapper,
     factory_contract: Addr,
     asset_infos: &[AssetInfo; 2],
 ) -> StdResult<PairInfo> {
@@ -87,7 +86,7 @@ pub fn query_pair_info(
 }
 
 pub fn simulate(
-    querier: &QuerierWrapper<Empty>,
+    querier: &QuerierWrapper,
     pair_contract: Addr,
     offer_asset: &Asset,
 ) -> StdResult<SimulationResponse> {
@@ -100,7 +99,7 @@ pub fn simulate(
 }
 
 pub fn reverse_simulate(
-    querier: &QuerierWrapper<Empty>,
+    querier: &QuerierWrapper,
     pair_contract: Addr,
     ask_asset: &Asset,
 ) -> StdResult<ReverseSimulationResponse> {
@@ -112,45 +111,14 @@ pub fn reverse_simulate(
     }))
 }
 
-pub fn query_ibc_denom(querier: &QuerierWrapper<Empty>, denom: String) -> StdResult<String> {
-    let denoms: Vec<&str> = denom.split('/').collect();
-    if denoms.len() != 2 || denoms[0] != "ibc" {
-        return Err(StdError::generic_err("invalid ibc denom"));
-    }
+pub fn query_pair_info_from_pair(
+    querier: &QuerierWrapper,
+    pair_contract: Addr,
+) -> StdResult<PairInfo> {
+    let pair_info: PairInfo = querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: pair_contract.to_string(),
+        msg: to_binary(&PairQueryMsg::Pair {})?,
+    }))?;
 
-    let mut req = QueryDenomTraceRequest::new();
-    req.set_hash(denoms[1].to_string());
-    let query_denom_trace_req: Binary = Binary::from(req.write_to_bytes().unwrap());
-
-    let req = to_vec::<QueryRequest<Empty>>(&QueryRequest::Stargate {
-        path: "/ibc.applications.transfer.v1.Query/DenomTrace".to_string(),
-        data: query_denom_trace_req,
-    })
-    .unwrap();
-
-    let res: Binary = querier.raw_query(req.as_slice()).unwrap().unwrap();
-
-    let res: QueryDenomTraceResponse = Message::parse_from_bytes(res.as_slice())
-        .map_err(|_| StdError::parse_err("QueryDenomTraceResponse", "failed to parse data"))?;
-
-    Ok(res.denom_trace.unwrap().base_denom)
-}
-
-pub fn query_is_valid_denom(querier: &QuerierWrapper<Empty>, denom: String) -> StdResult<()> {
-    let mut req = QuerySupplyOfRequest::new();
-    req.set_denom(denom);
-    let binary_req: Binary = Binary::from(req.write_to_bytes().unwrap());
-
-    let req = to_vec::<QueryRequest<Empty>>(&QueryRequest::Stargate {
-        path: "/cosmos.bank.v1beta1.Query/SupplyOf".to_string(),
-        data: binary_req,
-    })
-    .unwrap();
-
-    let res: Binary = querier.raw_query(req.as_slice()).unwrap().unwrap();
-    let _res: QuerySupplyOfResponse = Message::parse_from_bytes(res.as_slice())
-        .map_err(|_| StdError::parse_err("QuerySupplyOfResponse", "failed to parse data"))
-        .unwrap();
-
-    Ok(())
+    Ok(pair_info)
 }

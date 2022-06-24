@@ -56,7 +56,7 @@ So, at a 1% tolerance level, if a user sends a transaction with 200 UST and 1 AS
         {
           "info": {
             "native_token": {
-              "denom": "uusd"
+              "denom": "afet"
             }
           },
           "amount": "1000000"
@@ -83,7 +83,7 @@ So, at a 1% tolerance level, if a user sends a transaction with 200 UST and 1 AS
         {
           "info": {
             "native_token": {
-              "denom": "uusd"
+              "denom": "afet"
             }
           },
           "amount": "1000000"
