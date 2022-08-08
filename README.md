@@ -15,13 +15,13 @@ Uniswap-inspired automated market-maker (AMM) protocol powered by Smart Contract
 
 * starfleit_factory
 
-   Mainnet: ``
+   Mainnet: `fetch1slz6c85kxp4ek5ufmcakfhnscv9r2snlemxgwz6cjhklgh7v2hms8rgt5v`
 
    Testnet: `fetch1kmag3937lrl6dtsv29mlfsedzngl9egv5c3apnr468q50gu04zrqea398u`
 
 * starfleit_pair
 
-   Mainnet (CodeID): 
+   Mainnet (CodeID): 22
 
    Testnet (CodeID): 1464
 
