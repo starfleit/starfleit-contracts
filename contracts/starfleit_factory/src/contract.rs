@@ -316,8 +316,22 @@ pub fn query_native_token_decimal(
     Ok(NativeTokenDecimalsResponse { decimals })
 }
 
+const TARGET_CONTRACT_VERSION: &str = "0.0.0";
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    let prev_version = cw2::get_contract_version(deps.as_ref().storage)?;
+
+    if prev_version.contract != CONTRACT_NAME {
+        return Err(StdError::generic_err("invalid contract"));
+    }
+
+    if prev_version.version != TARGET_CONTRACT_VERSION {
+        return Err(StdError::generic_err(format!(
+            "invalid contract version. target {}, but source is {}",
+            TARGET_CONTRACT_VERSION, prev_version.version
+        )));
+    }
+
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::default())
