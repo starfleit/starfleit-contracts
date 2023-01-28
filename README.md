@@ -21,9 +21,9 @@ Uniswap-inspired automated market-maker (AMM) protocol powered by Smart Contract
 
 * starfleit_pair
 
-   Mainnet (CodeID): 22
+   Mainnet (CodeID): 41
 
-   Testnet (CodeID): 1464
+   Testnet (CodeID): 5746
 
 * starfleit_token
 
@@ -57,7 +57,7 @@ Or for a production-ready (compressed) build, run the following from the reposit
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/workspace-optimizer:0.12.6
+  cosmwasm/workspace-optimizer:0.12.8
 ```
 
 The optimized contracts are generated in the artifacts/ directory.

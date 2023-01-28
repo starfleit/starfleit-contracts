@@ -635,7 +635,7 @@ dependencies = [
 
 [[package]]
 name = "starfleit"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -648,7 +648,7 @@ dependencies = [
 
 [[package]]
 name = "starfleit-factory"
-version = "0.0.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -664,7 +664,7 @@ dependencies = [
 
 [[package]]
 name = "starfleit-pair"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
