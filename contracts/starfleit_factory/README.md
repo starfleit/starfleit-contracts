@@ -3,6 +3,7 @@
 The factory contract can perform creation of starfleit pair contract and also be used as directory contract for all pairs.
 
 ## InstantiateMsg
+Register verified pair contract and token contract for pair contract creation. The sender will be the owner of the factory contract.
 
 ```json
 {
@@ -14,11 +15,12 @@ The factory contract can perform creation of starfleit pair contract and also be
 ## ExecuteMsg
 
 ### `update_config`
+The factory contract owner can change relevant code IDs for future pair contract creation.
 
 ```json
 {
   "update_config": {
-    "owner": "cosmos...",
+    "owner": "fetch...",
     "token_id": 123,
     "pair_code_id": 123
   }
@@ -26,43 +28,56 @@ The factory contract can perform creation of starfleit pair contract and also be
 ```
 
 ### `create_pair`
+When a user execute `CreatePair` operation, it creates `Pair` contract and `LP(liquidity provider)` token contract.
+
+In order to create pairs with native tokens, including IBC tokens, they must first be registered with their decimals by the factory contract owner. See [add_native_token_decimals](#add_native_token_decimals) for more details.
 
 ```json
 {
   "create_pair": {
-    "asset_infos": [
+    "assets": [
       {
-        "token": {
-          "contract_addr": "cosmos..."
-        }
+        "info": {
+          "token": {
+            "contract_addr": "fetch..."
+          }
+        },
+        "amount": "0"
       },
       {
-        "native_token": {
-          "denom": "afet"
-        }
+        "info": {
+          "native_token": {
+            "denom": "afet"
+          }
+        },
+        "amount": "0"
       }
     ]
   }
 }
 ```
 
-### `register`
+### `add_native_token_decimals`
+This operation which is only allowed for the factory contract owner, registers native tokens (including IBC tokens) along with their decimals.
+
+The contract will create a new pair using the provided token information if the pair contains a token registered by this operation,
 
 ```json
 {
-  "register": {
-    "asset_infos": [
-      {
-        "token": {
-          "contract_addr": "cosmos..."
-        }
-      },
-      {
-        "native_token": {
-          "denom": "afet"
-        }
-      }
-    ]
+  "add_native_token_decimals": {
+    "denom": "afet",
+    "decimals": 18
+  }
+}
+```
+
+### `migrate_pair`
+
+```json
+{
+  "migrate_pair": {
+    "contract": "fetch...",
+    "code_id": 123
   }
 }
 ```
@@ -85,7 +100,7 @@ The factory contract can perform creation of starfleit pair contract and also be
     "asset_infos": [
       {
         "token": {
-          "contract_addr": "cosmos..."
+          "contract_addr": "fetch..."
         }
       },
       {
@@ -98,43 +113,15 @@ The factory contract can perform creation of starfleit pair contract and also be
 }
 ```
 
-Register verified pair contract and token contract for pair contract creation. The sender will be the owner of the factory contract.
-
-```rust
-{
-    /// Pair contract code ID, which is used to
-    pub pair_code_id: u64,
-    pub token_code_id: u64,
-    pub init_hook: Option<InitHook>,
-}
-```
-
-### UpdateConfig
-
-The factory contract owner can change relevant code IDs for future pair contract creation.
+### `pairs`
 
 ```json
 {
-    "update_config":
-    {
-        "owner": Option<HumanAddr>,
-        "pair_code_id": Option<u64>,
-        "token_code_id": Option<u64>,
-    }
-}
-```
-
-### Create Pair
-
-When a user execute `CreatePair` operation, it creates `Pair` contract and `LP(liquidity provider)` token contract. It also creates not fully initialized `PairInfo`, which will be initialized with `Register` operation from the pair contract's `InitHook`.
-
-```json
-{
-  "create_pair": {
-    "asset_infos": [
+  "pairs": {
+    "start_after": [
       {
         "token": {
-          "contract_addr": "cosmos..."
+          "contract_addr": "fetch..."
         }
       },
       {
@@ -142,27 +129,18 @@ When a user execute `CreatePair` operation, it creates `Pair` contract and `LP(l
           "denom": "afet"
         }
       }
-    ]
+    ],
+    "limit": 10
   }
 }
 ```
 
-### Register
-
-When a user executes `CreatePair` operation, it passes `InitHook` to `Pair` contract and `Pair` contract will invoke passed `InitHook` registering created `Pair` contract to the factory. This operation is only allowed for a pair, which is not fully initialized.
-
-Once a `Pair` contract invokes it, the sender address is registered as `Pair` contract address for the given asset_infos.
+### `native_token_decimals`
 
 ```json
-{ "register":
-    "asset_infos": [{
-        "token": {
-            "contract_addr": "cosmos...",
-            }
-        }, {
-            "native_token": {
-                "denom": "afet",
-            }
-    }],
+{
+  "native_token_decimals": {
+    "denom": "afet"
+  }
 }
 ```
