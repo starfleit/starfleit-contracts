@@ -4,7 +4,7 @@
 
 ### Initialize
 
-This is mainly used from starfleit factory contract to create new starfleit pair. It initialize all swap created parameters which can be updated later with owner key.
+This is mainly used from starfleit factory contract to create new starfleit pair. It initializes all swap created parameters which can be updated later with owner key.
 
 It creates liquidity token contract as init response, and execute init hook to register created liquidity token contract to self.
 
@@ -29,9 +29,13 @@ When providing liquidity from a smart contract, tokens deposited into a pool at 
 
 > Note before executing the `provide_liqudity` operation, a user must allow the contract to use the liquidity amount of asset in the token contract.
 
+#### Receiver
+
+If a user specifies the `receiver` at `provide_liqudity` msg, sends LP token to receiver. The default value is sender.
+
 #### Min Assets
 
-If a user specify the `min_assets` at `withdraw_liquidity` msg, the contract restricts the operation when the returned assets are less than the min assets.
+If a user specifies the `min_assets` at `withdraw_liquidity` msg, the contract restricts the operation when the returned assets are less than the min assets.
 
 #### Deadline
 
@@ -48,7 +52,7 @@ A `deadline` sets a time after which a transaction can no longer be executed. Th
         {
           "info": {
             "token": {
-              "contract_addr": "cosmos..."
+              "contract_addr": "fetch..."
             }
           },
           "amount": "1000000"
@@ -77,7 +81,7 @@ A `deadline` sets a time after which a transaction can no longer be executed. Th
         {
           "info": {
             "token": {
-              "contract_addr": "cosmos~~"
+              "contract_addr": "fetch~~"
             }
           },
           "amount": "1000000"
@@ -162,13 +166,13 @@ let return_amount = (ask_pool - cp.multiply_ratio(1u128, offer_pool + offer_amou
 
 // calculate spread & commission
 let spread_amount: Uint128 =
-    (offer_amount * Decimal::from_ratio(ask_pool, offer_pool) - return_amount)?;
+(offer_amount * Decimal::from_ratio(ask_pool, offer_pool) - return_amount)?;
 let lp_commission: Uint128 = return_amount * config.lp_commission;
 let owner_commission: Uint128 = return_amount * config.owner_commission;
 
 // commission will be absorbed to pool
 let return_amount: Uint128 =
-    (return_amount - (lp_commission + owner_commission)).unwrap();
+(return_amount - (lp_commission + owner_commission)).unwrap();
 ```
 
 #### Commission

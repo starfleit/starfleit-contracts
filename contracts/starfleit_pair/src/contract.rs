@@ -21,6 +21,7 @@ use starfleit::pair::{
 };
 use starfleit::querier::query_token_info;
 use starfleit::token::InstantiateMsg as TokenInstantiateMsg;
+use starfleit::util::migrate_version;
 use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::ops::Mul;
@@ -220,6 +221,10 @@ pub fn receive_cw20(
 /// This just stores the result for future query
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+    if msg.id != INSTANTIATE_REPLY_ID {
+        return Err(StdError::generic_err("invalid reply msg"));
+    }
+
     let data = msg.result.unwrap().data.unwrap();
     let res: MsgInstantiateContractResponse =
         Message::parse_from_bytes(data.as_slice()).map_err(|_| {
@@ -851,22 +856,12 @@ pub fn assert_deadline(blocktime: u64, deadline: Option<u64>) -> Result<(), Cont
 const TARGET_CONTRACT_VERSION: &str = "0.1.0";
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-    let prev_version = cw2::get_contract_version(deps.as_ref().storage)?;
-
-    if prev_version.contract != CONTRACT_NAME {
-        return Err(ContractError::Std(StdError::generic_err(
-            "invalid contract",
-        )));
-    }
-
-    if prev_version.version != TARGET_CONTRACT_VERSION {
-        return Err(ContractError::Std(StdError::generic_err(format!(
-            "invalid contract version. target {}, but source is {}",
-            TARGET_CONTRACT_VERSION, prev_version.version
-        ))));
-    }
-
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    migrate_version(
+        deps,
+        TARGET_CONTRACT_VERSION,
+        CONTRACT_NAME,
+        CONTRACT_VERSION,
+    )?;
 
     Ok(Response::default())
 }
