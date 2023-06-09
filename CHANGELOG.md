@@ -1,3 +1,10 @@
+# 1.2.0
+
+## New features
+* [ac63ee](https://github.com/starfleit/starfleit-contracts/pull/15/commits/ac63ee58b3485a9e9ae519d31c3e6ea3c9047dcf) revert slippage tolerance in provide liquidity
+* [26bc0a](https://github.com/starfleit/starfleit-contracts/pull/15/commits/26bc0a3217bf908a61683e72c505ca008aca4f9f) initial liquidity deduction for pair protection
+* [1bb677](https://github.com/starfleit/starfleit-contracts/pull/15/commits/1bb67768d3d1b842bc4e272799b54bc33b38b707) create pair with provide liquidity
+
 # 1.1.0
 
 ## New features
